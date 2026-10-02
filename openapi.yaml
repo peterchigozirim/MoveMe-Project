@@ -1,0 +1,447 @@
+openapi: 3.1.0
+info:
+  title: MoveMe API
+  version: 1.0.0
+  description: Fixed-route departures, seat reservations, simulated payments, and trip operations.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /auth/register:
+    post:
+      security: []
+      summary: Register a passenger or driver. Driver publishing remains disabled until an admin enables it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [firstName, lastName, email, password]
+              properties:
+                firstName: { type: string, minLength: 1 }
+                lastName: { type: string, minLength: 1 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 10 }
+                phone: { type: string }
+                role:
+                  {
+                    type: string,
+                    enum: [PASSENGER, DRIVER],
+                    default: PASSENGER,
+                  }
+      responses:
+        "201": { description: Created; returns user and bearer token }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /auth/login:
+    post:
+      security: []
+      summary: Sign in and receive a bearer token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200": { description: User and bearer token }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/me:
+    get:
+      summary: Get the signed-in account.
+      responses:
+        "200": { description: Safe user profile }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /routes:
+    get:
+      security: []
+      summary: List active fixed routes and configured fares.
+      responses:
+        "200": { description: Route list }
+  /admin/routes:
+    get:
+      summary: List all routes, including inactive routes.
+      x-roles: [ADMIN]
+      responses:
+        "200": { description: Route list }
+    post:
+      summary: Create a route with fixed duration and solo/per-seat pooled fares.
+      x-roles: [ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RouteInput" }
+      responses:
+        "201": { description: Created route }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/routes/{routeId}:
+    patch:
+      summary: Change route defaults for future departures; existing departures retain snapshots.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/routeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RouteInput" }
+      responses:
+        "200": { description: Updated route }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /vehicles:
+    post:
+      summary: Add a vehicle to the signed-in driver account.
+      x-roles: [DRIVER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VehicleInput" }
+      responses:
+        "201": { description: Created vehicle }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /vehicles/me:
+    get:
+      summary: List the signed-in driver's vehicles.
+      x-roles: [DRIVER]
+      responses:
+        "200": { description: Owned vehicles }
+  /vehicles/{vehicleId}:
+    patch:
+      summary: Update an owned vehicle.
+      x-roles: [DRIVER]
+      parameters:
+        - $ref: "#/components/parameters/vehicleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VehicleInput" }
+      responses:
+        "200": { description: Updated vehicle }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /departures:
+    post:
+      summary: Publish an enabled driver's future departure. Fare/duration/capacity are snapshotted.
+      x-roles: [DRIVER]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [routeId, vehicleId, departureTime, mode]
+              properties:
+                routeId: { type: string, format: uuid }
+                vehicleId: { type: string, format: uuid }
+                departureTime: { type: string, format: date-time }
+                mode: { type: string, enum: [SOLO, POOL] }
+      responses:
+        "201": { description: Departure published }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /departures/search:
+    get:
+      summary: Find departures with current availability. Immediate includes the next 15 minutes; scheduled means later.
+      x-roles: [PASSENGER]
+      parameters:
+        - in: query
+          name: routeId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: mode
+          required: true
+          schema: { type: string, enum: [SOLO, POOL] }
+        - in: query
+          name: timing
+          schema:
+            { type: string, enum: [immediate, scheduled], default: scheduled }
+      responses:
+        "200": { description: Availability state and eligible departures }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /departures/mine:
+    get:
+      summary: List the signed-in driver's departures and assigned passenger contact details.
+      x-roles: [DRIVER]
+      responses:
+        "200": { description: Owned departures }
+  /departures/{departureId}:
+    delete:
+      summary: Cancel an unstarted departure, release seats, refund successful payments, and notify passengers.
+      x-roles: [DRIVER]
+      parameters:
+        - $ref: "#/components/parameters/departureId"
+      responses:
+        "200": { description: Cancellation and affected passenger count }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /departures/{departureId}/trip:
+    patch:
+      summary: Advance a trip from NOT_STARTED to ARRIVED to IN_PROGRESS to COMPLETED.
+      x-roles: [DRIVER]
+      parameters:
+        - $ref: "#/components/parameters/departureId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  { type: string, enum: [ARRIVED, IN_PROGRESS, COMPLETED] }
+      responses:
+        "200": { description: Updated trip state }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /rides:
+    post:
+      summary: Atomically hold one seat for five minutes.
+      x-roles: [PASSENGER]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string, maxLength: 120 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [departureId]
+              properties:
+                departureId: { type: string, format: uuid }
+      responses:
+        "201": { description: Reservation and pending simulated payment }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /rides/me:
+    get:
+      summary: List the passenger's upcoming reservations and ride history.
+      x-roles: [PASSENGER]
+      responses:
+        "200": { description: Passenger-owned reservations }
+  /rides/{rideId}:
+    delete:
+      summary: Cancel a confirmed reservation before scheduled departure and trip start.
+      x-roles: [PASSENGER]
+      parameters:
+        - $ref: "#/components/parameters/rideId"
+      responses:
+        "200": { description: Cancellation and simulated refund outcome }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /payments/{paymentId}/simulate:
+    post:
+      summary: Simulate payment success or failure. A late callback cannot confirm an expired hold.
+      x-roles: [PASSENGER]
+      parameters:
+        - $ref: "#/components/parameters/paymentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              properties:
+                outcome: { type: string, enum: [success, failure] }
+      responses:
+        "200": { description: Payment outcome }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /notifications:
+    get:
+      summary: List notifications belonging to the signed-in user.
+      responses:
+        "200": { description: User-owned notifications }
+  /notifications/{notificationId}/read:
+    patch:
+      summary: Mark an owned notification as read.
+      parameters:
+        - $ref: "#/components/parameters/notificationId"
+      responses:
+        "200": { description: Updated notification }
+  /issues:
+    post:
+      summary: Report an operational issue.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description]
+              properties:
+                title: { type: string, minLength: 3 }
+                description: { type: string, minLength: 3 }
+      responses:
+        "201": { description: Created issue }
+  /admin/issues:
+    get:
+      summary: List operational issues with reporter identity.
+      x-roles: [ADMIN]
+      responses:
+        "200": { description: Issue list }
+  /admin/issues/{issueId}:
+    patch:
+      summary: Update issue handling status.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/issueId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED] }
+      responses:
+        "200": { description: Updated issue }
+  /admin/drivers:
+    get:
+      summary: List driver accounts and their access state.
+      x-roles: [ADMIN]
+      responses:
+        "200": { description: Driver roster }
+  /admin/drivers/{userId}/access:
+    patch:
+      summary: Enable or suspend a driver's departure publishing access.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/userId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200": { description: Updated driver access }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    routeId:
+      {
+        in: path,
+        name: routeId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    vehicleId:
+      {
+        in: path,
+        name: vehicleId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    departureId:
+      {
+        in: path,
+        name: departureId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    rideId:
+      {
+        in: path,
+        name: rideId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    paymentId:
+      {
+        in: path,
+        name: paymentId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    notificationId:
+      {
+        in: path,
+        name: notificationId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    issueId:
+      {
+        in: path,
+        name: issueId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    userId:
+      {
+        in: path,
+        name: userId,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+  schemas:
+    RouteInput:
+      type: object
+      required: [origin, destination, durationMinutes, soloFare, pooledFare]
+      properties:
+        origin: { type: string, minLength: 1 }
+        destination: { type: string, minLength: 1 }
+        durationMinutes: { type: integer, minimum: 1 }
+        soloFare: { type: number, exclusiveMinimum: 0 }
+        pooledFare: { type: number, exclusiveMinimum: 0 }
+        isActive: { type: boolean }
+    VehicleInput:
+      type: object
+      required: [registration, make, model, seats]
+      properties:
+        registration: { type: string }
+        make: { type: string }
+        model: { type: string }
+        color: { type: string }
+        seats: { type: integer, minimum: 1, maximum: 80 }
+        isActive: { type: boolean }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        errors: { type: array, items: { type: object } }
+  responses:
+    BadRequest:
+      description: Invalid input; response contains message and field errors.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid bearer token / credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Authenticated user lacks the required role or driver access.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource does not exist or is not owned by the signed-in user.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Invalid current state, unavailable seat, overlapping interval, or duplicate request.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

@@ -1,16 +1,253 @@
-
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
 
 datasource db {
   provider = "postgresql"
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id            String             @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String             @unique
+  passwordHash  String
+  phone         String?
+  role          UserRole           @default(PASSENGER)
+  driverEnabled Boolean            @default(false)
+  vehicles      Vehicle[]
+  departures    Departure[]
+  rides         Ride[]
+  payments      Payment[]
+  notifications Notification[]
+  auditEvents   AuditLog[]
+  issues        OperationalIssue[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 }
 
+enum UserRole {
+  PASSENGER
+  DRIVER
+  ADMIN
+}
+
+// Vehicle, 
+model Vehicle {
+  id           String  @id @default(uuid())
+  driverId     String
+  registration String  @unique
+  make         String
+  model        String
+  color        String?
+  seats        Int
+  isActive     Boolean @default(true)
+
+  driver     User        @relation(fields: [driverId], references: [id])
+  departures Departure[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([driverId])
+}
+
+// Route 
+model Route {
+  id              String  @id @default(uuid())
+  origin          String
+  destination     String
+  durationMinutes Int
+  soloFare        Decimal @db.Decimal(10, 2)
+  pooledFare      Decimal @db.Decimal(10, 2)
+  isActive        Boolean @default(true)
+
+  departures Departure[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([origin, destination])
+}
+
+// Departure
+
+model Departure {
+  id        String @id @default(uuid())
+  driverId  String
+  vehicleId String
+  routeId   String
+
+  departureTime   DateTime
+  durationMinutes Int
+  mode            RideType
+  fare            Decimal  @db.Decimal(10, 2)
+  totalSeats      Int
+
+  status DepartureStatus @default(OPEN)
+
+  driver  User    @relation(fields: [driverId], references: [id])
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  route   Route   @relation(fields: [routeId], references: [id])
+
+  rides Ride[]
+  trip  Trip?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([routeId])
+  @@index([departureTime])
+}
+
+enum DepartureStatus {
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+// Ride model and related enums
+model Ride {
+  id             String  @id @default(uuid())
+  idempotencyKey String? @unique
+  passengerId    String
+  departureId    String
+
+  type   RideType
+  status RideStatus @default(PENDING_PAYMENT)
+
+  seats Int     @default(1)
+  fare  Decimal @db.Decimal(10, 2)
+
+  passenger User      @relation(fields: [passengerId], references: [id])
+  departure Departure @relation(fields: [departureId], references: [id])
+
+  payment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([passengerId])
+  @@index([departureId])
+}
+
+enum RideType {
+  SOLO
+  POOL
+}
+
+enum RideStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Payment {
+  id          String @id @default(uuid())
+  rideId      String @unique
+  passengerId String
+
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("NGN")
+
+  status PaymentStatus @default(PENDING)
+
+  expiresAt DateTime?
+  paidAt    DateTime?
+
+  ride      Ride @relation(fields: [rideId], references: [id])
+  passenger User @relation(fields: [passengerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([passengerId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+// Trip model and related enums
+
+model Trip {
+  id          String @id @default(uuid())
+  departureId String @unique
+
+  status TripStatus @default(NOT_STARTED)
+
+  startedAt   DateTime?
+  arrivedAt   DateTime?
+  completedAt DateTime?
+
+  departure Departure @relation(fields: [departureId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TripStatus {
+  NOT_STARTED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  entityType String
+  entityId   String
+  action     String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model OperationalIssue {
+  id          String      @id @default(uuid())
+  reporterId  String
+  title       String
+  description String
+  status      IssueStatus @default(OPEN)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@index([status, createdAt])
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}

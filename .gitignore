@@ -8,6 +8,7 @@ node_modules/
 
 # Prisma
 prisma/generated/
+/generated/
 .prisma/
 
 # logs
