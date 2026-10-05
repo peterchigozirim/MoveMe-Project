@@ -45,6 +45,14 @@ class AuthService {
 			select: SAFE_USER_FIELDS,
 		});
 
+		if (user.role === "DRIVER") {
+			await prisma.driver.create({
+				data: {
+					userId: user.id,
+				},
+			});
+		}
+
 		const token = this.generateToken(
 			user.id,
 			user.email,

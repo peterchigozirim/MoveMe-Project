@@ -16,6 +16,7 @@ model User {
   phone         String?
   role          UserRole           @default(PASSENGER)
   driverEnabled Boolean            @default(false)
+  driver        Driver?
   vehicles      Vehicle[]
   departures    Departure[]
   rides         Ride[]
@@ -31,6 +32,19 @@ enum UserRole {
   PASSENGER
   DRIVER
   ADMIN
+}
+
+// Driver
+
+model Driver {
+  id        String @id @default(uuid())
+  userId    String @unique
+  approved   Boolean @default(false)
+  approvedAt DateTime?
+  accountBalance Decimal? @db.Decimal(15, 2) @default(0.00)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Vehicle, 

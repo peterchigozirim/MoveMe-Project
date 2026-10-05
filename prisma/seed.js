@@ -5,19 +5,6 @@ import prisma from "../src/config/database.js";
 const demoUsers = [
 	{
 		firstName: "Demo",
-		lastName: "Passenger",
-		email: "passenger@moveme.local",
-		role: "PASSENGER",
-	},
-	{
-		firstName: "Demo",
-		lastName: "Driver",
-		email: "driver@moveme.local",
-		role: "DRIVER",
-		driverEnabled: true,
-	},
-	{
-		firstName: "Demo",
 		lastName: "Admin",
 		email: "admin@moveme.local",
 		role: "ADMIN",
@@ -39,31 +26,6 @@ async function main() {
 			create: { ...user, passwordHash, driverEnabled },
 		});
 	}
-	await prisma.route.upsert({
-		where: {
-			origin_destination: { origin: "Central Station", destination: "Airport" },
-		},
-		update: {},
-		create: {
-			origin: "Central Station",
-			destination: "Airport",
-			durationMinutes: 45,
-			soloFare: 18000,
-			pooledFare: 6500,
-		},
-	});
-	await prisma.vehicle.upsert({
-		where: { registration: "MOVEME-DEMO-1" },
-		update: {},
-		create: {
-			registration: "MOVEME-DEMO-1",
-			make: "Toyota",
-			model: "Corolla",
-			color: "White",
-			seats: 4,
-			driver: { connect: { email: "driver@moveme.local" } },
-		},
-	});
 
 	console.log("Demo passenger, driver, admin, route, and vehicle are ready.");
 }
