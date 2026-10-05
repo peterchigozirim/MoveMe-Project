@@ -1,57 +1,88 @@
-import zod from "zod";
+import joi from "joi";
 
-const validateAuth = (req, res, next) => {
-	const schema = zod.object({
-		email: zod.string().email(),
-		password: zod.string().min(6),
-	});
-	const validationResult = schema.safeParse(req.body);
-	if (!validationResult.success) {
-		return res.status(400).json({
-			status: "error",
-			message: "Validation failed",
-			errors: validationResult.error.errors,
-		});
+const authenticate = (req, res, next) => {
+	if (!req.user) {
+		return res.status(401).json({ message: "Unauthorized" });
 	}
-	req.body = validationResult.data;
-	next();
-};
-const validateRegisterInput = (req, res, next) => {
-	const schema = zod.object({
-		name: zod.string().min(3),
-		email: zod.string().email(),
-		password: zod.string().min(6),
-		firstName: zod.string().min(3),
-		lastName: zod.string().min(3),
-		phone: zod.string().min(10),
-	});
-	const validationResult = schema.safeParse(req.body);
-	if (!validationResult.success) {
-		return res.status(400).json({
-			status: "error",
-			message: "Validation failed",
-			errors: validationResult.error.errors,
-		});
-	}
-	req.body = validationResult.data;
 	next();
 };
 
-const validateChangePasswordInput = (req, res, next) => {
-	const schema = zod.object({
-		oldPassword: zod.string().min(6),
-		newPassword: zod.string().min(6),
-	});
-	const validationResult = schema.safeParse(req.body);
-	if (!validationResult.success) {
-		return res.status(400).json({
-			status: "error",
-			message: "Validation failed",
-			errors: validationResult.error.errors,
-		});
+const registerInput = (req, res, next) => {
+	const { error, value } = joi
+		.object({
+			firstName: joi.string().min(1).required(),
+			lastName: joi.string().min(1).required(),
+			email: joi.string().email().required(),
+			password: joi.string().min(1).required(),
+			phone: joi.string().min(1).required(),
+			role: joi
+				.string()
+				.valid("passenger", "driver")
+				.required()
+				.default("passenger"),
+		})
+		.validate(req.body);
+	if (error) {
+		const errors = error.details.map((detail) =>
+			detail.message.replaceAll('"', ""),
+		);
+		return res.status(400).json({ message: "Invalid new input", errors });
 	}
-	req.body = validationResult.data;
+	req.body = value;
+
 	next();
 };
 
-export { validateAuth, validateRegisterInput, validateChangePasswordInput };
+const loginInput = (req, res, next) => {
+	const { error, value } = joi
+		.object({
+			email: joi.string().email().required(),
+			password: joi.string().min(1).required(),
+		})
+		.validate(req.body);
+	if (error) {
+		const errors = error.details.map((detail) =>
+			detail.message.replaceAll('"', ""),
+		);
+		return res.status(400).json({ message: "Invalid login input", errors });
+	}
+	req.body = value;
+
+	next();
+};
+
+const changePasswordInput = (req, res, next) => {
+	const { error, value } = joi
+		.object({
+			oldPassword: joi.string().min(8).required(),
+			newPassword: joi.string().min(8).required(),
+		})
+		.validate(req.body);
+	if (error) {
+		const errors = error.details.map((detail) => {
+			if (detail.context?.key === "oldPassword") {
+				if (detail.type === "any.required") {
+					return "Old password is required";
+				} else if (detail.type === "string.min") {
+					return "Old password must be at least 8 characters long";
+				}
+			}
+			if (detail.context?.key === "newPassword") {
+				if (detail.type === "any.required") {
+					return "New password is required";
+				} else if (detail.type === "string.min") {
+					return "New password must be at least 8 characters long";
+				}
+			}
+			return detail.message.replaceAll('"', "");
+		});
+		return res
+			.status(400)
+			.json({ message: "Invalid change password input", errors });
+	}
+	req.body = value;
+
+	next();
+};
+
+export { authenticate, registerInput, loginInput, changePasswordInput };

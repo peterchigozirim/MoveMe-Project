@@ -8,7 +8,7 @@ export async function authenticate(req, res, next) {
 	try {
 		const [scheme, token] = (req.get("authorization") ?? "").split(" ");
 		if (scheme !== "Bearer" || !token) {
-			return res.status(401).json({ message: "Bearer token required" });
+			return res.status(401).json({ message: "Unauthorized" });
 		}
 		payload = jwt.verify(token, env.jwtSecret);
 	} catch {
@@ -16,7 +16,7 @@ export async function authenticate(req, res, next) {
 	}
 	try {
 		const user = await prisma.user.findUnique({
-			where: { id: payload.sub },
+			where: { id: payload.userId },
 			select: {
 				id: true,
 				role: true,
@@ -25,6 +25,7 @@ export async function authenticate(req, res, next) {
 				lastName: true,
 				email: true,
 				phone: true,
+				createdAt: true,
 			},
 		});
 		if (!user) return res.status(401).json({ message: "Invalid session" });

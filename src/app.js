@@ -12,8 +12,8 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.clientOrigin === "*" ? true : env.clientOrigin }));
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
 app.get("/up", (req, res) => {

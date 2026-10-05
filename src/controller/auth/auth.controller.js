@@ -1,9 +1,9 @@
-import AuthService from "../../services/auth.service";
+import AuthService from "../../services/auth.service.js";
 
 const authService = new AuthService();
 
 const AuthController = {
-	registerUser: async (req, res, next) => {
+	async registerUser(req, res, next) {
 		try {
 			const newUser = req.body;
 			const result = await authService.registerUser(newUser);
@@ -16,7 +16,7 @@ const AuthController = {
 			next(err);
 		}
 	},
-	loginUser: async (req, res, next) => {
+	async loginUser(req, res, next) {
 		try {
 			const { email, password } = req.body;
 			const result = await authService.loginUser(email, password);
@@ -29,7 +29,7 @@ const AuthController = {
 			next(err);
 		}
 	},
-	getProfile: async (req, res, next) => {
+	async getProfile(req, res, next) {
 		try {
 			const userId = req.user.id;
 			const result = await authService.getProfile(userId);
@@ -42,21 +42,8 @@ const AuthController = {
 			next(err);
 		}
 	},
-	updateUser: async (req, res, next) => {
-		try {
-			const userId = req.user.id;
-			const { name, email } = req.body;
-			const result = await authService.updateUser(userId, name, email);
-			res.status(200).json({
-				status: "success",
-				message: "User updated successfully",
-				data: result,
-			});
-		} catch (err) {
-			next(err);
-		}
-	},
-	changePassword: async (req, res, next) => {
+
+	async changePassword(req, res, next) {
 		try {
 			const userId = req.user.id;
 			const { oldPassword, newPassword } = req.body;
@@ -68,10 +55,12 @@ const AuthController = {
 			res.status(200).json({
 				status: "success",
 				message: "Password changed successfully",
-				data: result,
+				// data: result,
 			});
 		} catch (err) {
 			next(err);
 		}
 	},
 };
+
+export default AuthController;
