@@ -1,5 +1,5 @@
-import prisma from "../config/database.js";
-import { httpError } from "../utils/http-error.js";
+import prisma from "../../config/database.js";
+import { httpError } from "../../utils/http-error.js";
 
 export function listRoutes() {
 	return prisma.route.findMany({
