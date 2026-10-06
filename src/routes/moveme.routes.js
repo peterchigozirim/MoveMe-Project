@@ -24,7 +24,7 @@ import {
 	updateIssue,
 	updateRoute,
 	updateVehicle,
-} from "../services/admin.service.js";
+} from "../services/admin/admin.service.js";
 import {
 	cancelDeparture,
 	cancelReservation,
