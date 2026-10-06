@@ -13,3 +13,10 @@ export function requireEnabledDriver(req, res, next) {
 	}
 	next();
 }
+
+export const checkDriver = (req, res, next) => {
+	if (req.user?.role !== "DRIVER") {
+		return res.status(403).json({ message: "Driver access required" });
+	}
+	next();
+};
