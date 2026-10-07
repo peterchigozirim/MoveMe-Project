@@ -1,6 +1,9 @@
 import joi from "joi";
 
 export const validateUserId = (req, res, next) => {
+	if (!req.body) {
+		return res.status(400).json({ message: "Request body is missing" });
+	}
 	const schema = joi.object({
 		id: joi.string().uuid().required(),
 	});
@@ -20,6 +23,9 @@ export const validateUserId = (req, res, next) => {
 };
 
 export const validateUserUpdate = (req, res, next) => {
+	if (!req.body) {
+		return res.status(400).json({ message: "Request body is missing" });
+	}
 	const schema = joi.object({
 		firstName: joi.string().min(3).optional(),
 		lastName: joi.string().min(3).optional(),
