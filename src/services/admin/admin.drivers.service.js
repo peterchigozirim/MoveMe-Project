@@ -2,41 +2,41 @@ import prisma from "../../config/database.js";
 import { httpError } from "../../utils/http-error.js";
 
 class AdminDriversService {
-	listDrivers() {
-		try {
-			return prisma.user.findMany({
-				where: { role: "DRIVER" },
-				select: {
-					id: true,
-					firstName: true,
-					lastName: true,
-					email: true,
-					driverEnabled: true,
-					_count: { select: { vehicles: true } },
-				},
-				orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-			});
-		} catch (error) {
-			throw httpError(500, "Failed to list drivers");
+	async listDrivers() {
+		const drivers = await prisma.user.findMany({
+			where: { role: "DRIVER" },
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				email: true,
+				driverEnabled: true,
+				_count: { select: { vehicles: true } },
+			},
+			orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+		});
+		if (!drivers) {
+			throw httpError("No drivers found", 404);
 		}
+		return drivers;
 	}
 
-	getDriverById(id) {
-		try {
-			return prisma.user.findUnique({
-				where: { id, role: "DRIVER" },
-				select: {
-					id: true,
-					firstName: true,
-					lastName: true,
-					email: true,
-					driverEnabled: true,
-					_count: { select: { vehicles: true } },
-				},
-			});
-		} catch (error) {
-			throw httpError(500, "Failed to get driver by ID");
+	async getDriverById(id) {
+		const driver = await prisma.user.findUnique({
+			where: { id, role: "DRIVER" },
+			select: {
+				id: true,
+				firstName: true,
+				lastName: true,
+				email: true,
+				driverEnabled: true,
+				_count: { select: { vehicles: true } },
+			},
+		});
+		if (!driver) {
+			throw httpError("Driver not found", 404);
 		}
+		return driver;
 	}
 
 	async enableDriver(id) {
@@ -45,10 +45,10 @@ class AdminDriversService {
 			select: { driverEnabled: true },
 		});
 		if (!checkDriver) {
-			throw httpError(404, "Driver not found");
+			throw httpError("Driver not found", 404);
 		}
 		if (checkDriver.driverEnabled) {
-			throw httpError(400, "Driver is already enabled");
+			throw httpError("Driver is already enabled", 400);
 		}
 		try {
 			return prisma.user.update({
@@ -56,7 +56,7 @@ class AdminDriversService {
 				data: { driverEnabled: true },
 			});
 		} catch (error) {
-			throw httpError(500, "Failed to enable driver");
+			throw httpError("Failed to enable driver", 500);
 		}
 	}
 
@@ -66,10 +66,10 @@ class AdminDriversService {
 			select: { driverEnabled: true },
 		});
 		if (!checkDriver) {
-			throw httpError(404, "Driver not found");
+			throw httpError("Driver not found", 404);
 		}
 		if (!checkDriver.driverEnabled) {
-			throw httpError(400, "Driver is already disabled");
+			throw httpError("Driver is already disabled", 400);
 		}
 		try {
 			return prisma.user.update({
@@ -77,7 +77,7 @@ class AdminDriversService {
 				data: { driverEnabled: false },
 			});
 		} catch (error) {
-			throw httpError(500, "Failed to disable driver");
+			throw httpError("Failed to disable driver", 500);
 		}
 	}
 }
