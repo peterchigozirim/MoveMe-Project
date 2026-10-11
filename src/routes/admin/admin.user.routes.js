@@ -1,5 +1,5 @@
 import express from "express";
-import AdminUsersController from "../../controller/admin/users.controller.js";
+import AdminUsersController from "../../controller/admin/admin.users.controller.js";
 import { authenticate } from "../../middlewares/session.middleware.js";
 import { checkAdmin } from "../../middlewares/role.middleware.js";
 import { validateUserUpdate } from "../../middlewares/admin/admin.user.middleware.js";
