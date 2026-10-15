@@ -6,6 +6,7 @@ import adminUserRoutes from "./admin/admin.user.routes.js";
 import adminRouteRoutes from "./admin/admin.route.routes.js";
 import adminDriverRoutes from "./admin/admin.driver.routes.js";
 import rideRoutes from "./passenger/ride.routes.js";
+import paymentRoutes from "./payment/payment.routes.js";
 import driverRoutes from "./driver.routes.js";
 
 const router = Router();
@@ -27,5 +28,6 @@ router.use("/admin/routes", adminRouteRoutes);
 router.use("/admin/drivers", adminDriverRoutes);
 router.use("/passenger/rides", rideRoutes);
 router.use("/driver", driverRoutes);
+router.use("/payments", paymentRoutes);
 
 export default router;

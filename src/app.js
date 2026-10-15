@@ -12,7 +12,14 @@ const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.clientOrigin === "*" ? true : env.clientOrigin }));
-app.use(express.json());
+app.use(
+	express.json({
+		// Paystack signs the exact raw bytes, so keep them for webhook verification.
+		verify: (req, res, buf) => {
+			req.rawBody = buf;
+		},
+	}),
+);
 // app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 

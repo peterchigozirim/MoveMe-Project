@@ -16,4 +16,32 @@ router.post(
 	bookRideController.searchRide,
 );
 
+router.get(
+	"/",
+	authenticate,
+	checkPassenger,
+	bookRideController.handleGetAllReservations,
+);
+
+router.get(
+	"/:rideId",
+	authenticate,
+	checkPassenger,
+	bookRideController.handleGetReservation,
+);
+
+router.post(
+	"/create-reservation",
+	authenticate,
+	checkPassenger,
+	bookRideController.handleCreateReservation,
+);
+
+router.post(
+	"/cancel-reservation",
+	authenticate,
+	checkPassenger,
+	bookRideController.handleCancelReservation,
+);
+
 export default router;

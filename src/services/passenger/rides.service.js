@@ -59,155 +59,25 @@ export async function searchRoutes({ destination = null, origin = null }) {
 				? { origin: { equals: normalizedOrigin, mode: "insensitive" } }
 				: {}),
 		},
+		include: {
+			departures: {
+				where: { status: { not: "CANCELLED" } },
+				select: {
+					id: true,
+					departureTime: true,
+					durationMinutes: true,
+					mode: true,
+					totalSeats: true,
+					status: true,
+					vehicle: true,
+				},
+			},
+		},
 	});
 	if (!routes.length) {
 		throw httpError("Destination or origin not found", 404);
 	}
 	return routes;
-}
-
-export async function publishDeparture(driver, input) {
-	const departureTime = new Date(input.departureTime);
-	if (
-		!Number.isFinite(departureTime.getTime()) ||
-		departureTime <= new Date()
-	) {
-		throw httpError("Departure time must be in the future");
-	}
-	return prisma.$transaction(
-		async (tx) => {
-			await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${driver.id} FOR UPDATE`;
-			const [route, vehicle] = await Promise.all([
-				tx.route.findUnique({ where: { id: input.routeId } }),
-				tx.vehicle.findFirst({
-					where: { id: input.vehicleId, driverId: driver.id, isActive: true },
-				}),
-			]);
-			if (!route?.isActive) throw httpError("Route not found or inactive", 404);
-			if (!vehicle)
-				throw httpError("Active vehicle not found for this driver", 404);
-
-			const end = new Date(
-				departureTime.getTime() + route.durationMinutes * 60_000,
-			);
-			const existing = await tx.departure.findMany({
-				where: {
-					status: { not: "CANCELLED" },
-					departureTime: { lt: end },
-					OR: [{ driverId: driver.id }, { vehicleId: vehicle.id }],
-				},
-				select: { id: true, departureTime: true, durationMinutes: true },
-			});
-			if (
-				existing.some((item) =>
-					intervalsOverlap(
-						departureTime,
-						end,
-						item.departureTime,
-						new Date(
-							item.departureTime.getTime() + item.durationMinutes * 60_000,
-						),
-					),
-				)
-			) {
-				throw httpError(
-					"Departure overlaps an existing driver or vehicle assignment",
-					409,
-				);
-			}
-
-			const fare = input.mode === "SOLO" ? route.soloFare : route.pooledFare;
-			const departure = await tx.departure.create({
-				data: {
-					driverId: driver.id,
-					vehicleId: vehicle.id,
-					routeId: route.id,
-					departureTime,
-					durationMinutes: route.durationMinutes,
-					mode: input.mode,
-					fare,
-					totalSeats: vehicle.seats,
-					trip: { create: {} },
-				},
-				include: { route: true, vehicle: true },
-			});
-			await audit(tx, driver.id, "Departure", departure.id, "PUBLISHED", {
-				routeId: route.id,
-				departureTime: departureTime.toISOString(),
-				mode: input.mode,
-				fare: fare.toString(),
-			});
-			return departure;
-		},
-		{ isolationLevel: "ReadCommitted" },
-	);
-}
-
-export async function searchDepartures({
-	destination = null,
-	route = null,
-	mode,
-	timing = "scheduled",
-}) {
-	const now = new Date();
-	const cutoff = new Date(now.getTime() + 15 * 60_000);
-	const timeFilter =
-		timing === "immediate" ? { gte: now, lte: cutoff } : { gt: cutoff };
-	const routeFilter =
-		destination || origin
-			? {
-					OR: [
-						...(destination ? [{ destination: { destination } }] : []),
-						...(origin
-							? [{ origin: { origin } }, { destination: { origin } }]
-							: []),
-					],
-				}
-			: {};
-	const departures = await prisma.departure.findMany({
-		where: {
-			...routeFilter,
-			mode,
-			status: "OPEN",
-			departureTime: timeFilter,
-			trip: { is: { status: "NOT_STARTED" } },
-			driver: { driverEnabled: true },
-			vehicle: { isActive: true },
-		},
-		include: {
-			route: { select: { id: true, origin: true, destination: true } },
-			driver: { select: { id: true, firstName: true, lastName: true } },
-			vehicle: { select: { make: true, model: true, color: true } },
-			rides: {
-				where: { status: { in: activeRideStatuses } },
-				include: { payment: { select: { status: true, expiresAt: true } } },
-			},
-		},
-		orderBy: { departureTime: "asc" },
-		take: 100,
-	});
-	if (!departures.length) {
-		return {
-			available: false,
-			message: "No matching departures are currently available",
-			departures: [],
-		};
-	}
-	const results = departures
-		.map(({ rides, ...departure }) => {
-			return {
-				...departure,
-				availableSeats: availableSeats(departure, rides, now),
-			};
-		})
-		.filter((departure) => departure.availableSeats > 0);
-	return {
-		available: results.length > 0,
-		message: results.length
-			? undefined
-			: "No matching departures are currently available",
-		departures: results,
-	};
 }
 
 export async function createReservation(
@@ -315,69 +185,47 @@ export async function createReservation(
 	}
 }
 
-export async function simulatePayment(passenger, paymentId, outcome) {
-	if (!["success", "failure"].includes(outcome))
-		throw httpError("Outcome must be success or failure");
-	const result = await prisma.$transaction(
-		async (tx) => {
-			const payment = await tx.payment.findUnique({
-				where: { id: paymentId },
-				include: { ride: { include: { departure: true } } },
-			});
-			if (!payment || payment.passengerId !== passenger.id)
-				throw httpError("Payment not found", 404);
-			await tx.$queryRaw`SELECT id FROM "Departure" WHERE id = ${payment.ride.departureId} FOR UPDATE`;
-			const current = await tx.payment.findUnique({ where: { id: paymentId } });
-			if (current.status === "SUCCESS" && outcome === "success") return current;
-			if (current.status !== "PENDING")
-				throw httpError("Payment is no longer pending", 409);
-			const now = new Date();
-			if (!current.expiresAt || current.expiresAt <= now) {
-				await tx.payment.update({
-					where: { id: paymentId },
-					data: { status: "EXPIRED" },
-				});
-				await tx.ride.update({
-					where: { id: current.rideId },
-					data: { status: "CANCELLED" },
-				});
-				await audit(tx, passenger.id, "Payment", paymentId, "EXPIRED", {});
-				await audit(
-					tx,
-					passenger.id,
-					"Ride",
-					current.rideId,
-					"PAYMENT_HOLD_EXPIRED",
-					{},
-				);
-				return { expired: true };
-			}
-			const success = outcome === "success";
-			const updated = await tx.payment.update({
-				where: { id: paymentId },
-				data: {
-					status: success ? "SUCCESS" : "FAILED",
-					paidAt: success ? now : null,
+export async function getAllReservations(passenger) {
+	return prisma.ride.findMany({
+		where: { passengerId: passenger.id },
+		include: {
+			payment: {
+				select: {
+					amount: true,
+					currency: true,
+					status: true,
+					expiresAt: true,
+					paidAt: true,
 				},
-			});
-			await tx.ride.update({
-				where: { id: current.rideId },
-				data: { status: success ? "CONFIRMED" : "CANCELLED" },
-			});
-			await audit(
-				tx,
-				passenger.id,
-				"Payment",
-				paymentId,
-				success ? "SUCCEEDED" : "FAILED",
-				{},
-			);
-			return { expired: false, payment: updated };
+			},
+			departure: {
+				include: {
+					route: { select: { origin: true, destination: true } },
+					driver: { select: { firstName: true, lastName: true } },
+					trip: {
+						select: {
+							status: true,
+							arrivedAt: true,
+							startedAt: true,
+							completedAt: true,
+						},
+					},
+				},
+			},
 		},
-		{ isolationLevel: "ReadCommitted" },
-	);
-	if (result.expired) throw httpError("Payment hold expired", 409);
-	return result.payment;
+		orderBy: { createdAt: "desc" },
+	});
+}
+
+export async function getReservation(passenger, rideId) {
+	const reservation = await prisma.ride.findUnique({
+		where: { id: rideId, passengerId: passenger.id },
+		include: { payment: true, departure: { include: { route: true } } },
+	});
+	if (!reservation) {
+		throw httpError("Reservation not found", 404);
+	}
+	return reservation;
 }
 
 export async function cancelReservation(passenger, rideId) {
