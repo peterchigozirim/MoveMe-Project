@@ -26,5 +26,7 @@ export default {
 	jwtSecret: process.env.JWT_SECRET,
 	jwtExpiresIn: process.env.JWT_EXPIRES_IN || "3d",
 	clientOrigin: process.env.CLIENT_ORIGIN || "*",
+	paystackSecretKey: process.env.PAYSTACK_SECRET_KEY,
+	paystackCallbackUrl: process.env.PAYSTACK_CALLBACK_URL,
 	isProduction,
 };
