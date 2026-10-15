@@ -146,3 +146,200 @@ export async function getAllRoutes() {
 	}
 	return routes;
 }
+
+export async function getDriverDepartures(driverId) {
+	return prisma.departure.findMany({
+		where: { driverId },
+		include: {
+			route: { select: { origin: true, destination: true } },
+			vehicle: {
+				select: { make: true, model: true, registration: true, seats: true },
+			},
+			trip: true,
+			rides: {
+				where: { status: "CONFIRMED" },
+				select: {
+					id: true,
+					passenger: {
+						select: { id: true, firstName: true, lastName: true, phone: true },
+					},
+				},
+			},
+		},
+		orderBy: { departureTime: "asc" },
+	});
+}
+
+export async function cancelDeparture(driver, departureId) {
+	return prisma.$transaction(
+		async (tx) => {
+			await tx.$queryRaw`SELECT id FROM "Departure" WHERE id = ${departureId} FOR UPDATE`;
+			const departure = await tx.departure.findUnique({
+				where: { id: departureId },
+				include: {
+					trip: true,
+					rides: {
+						where: { status: { in: activeRideStatuses } },
+						include: { payment: true },
+					},
+				},
+			});
+			if (!departure || departure.driverId !== driver.id)
+				throw httpError("Departure not found", 404);
+			if (
+				departure.status === "CANCELLED" ||
+				["IN_PROGRESS", "COMPLETED"].includes(departure.trip?.status)
+			) {
+				throw httpError("This departure can no longer be cancelled", 409);
+			}
+			const now = new Date();
+			for (const ride of departure.rides) {
+				await tx.ride.update({
+					where: { id: ride.id },
+					data: { status: "CANCELLED" },
+				});
+				let refundIssued = false;
+				if (ride.payment?.status === "SUCCESS") {
+					await tx.payment.update({
+						where: { id: ride.payment.id },
+						data: { status: "REFUNDED" },
+					});
+					await audit(tx, driver.id, "Payment", ride.payment.id, "REFUNDED", {
+						simulated: true,
+					});
+					refundIssued = true;
+				} else if (ride.payment?.status === "PENDING") {
+					await tx.payment.update({
+						where: { id: ride.payment.id },
+						data: { status: "EXPIRED" },
+					});
+					await audit(
+						tx,
+						driver.id,
+						"Payment",
+						ride.payment.id,
+						"CANCELLED_WITH_DEPARTURE",
+						{},
+					);
+				}
+				await tx.notification.create({
+					data: {
+						userId: ride.passengerId,
+						type: "DEPARTURE_CANCELLED",
+						message: "Your departure was cancelled by the driver.",
+					},
+				});
+				await audit(tx, driver.id, "Ride", ride.id, "CANCELLED_BY_DRIVER", {
+					refundIssued,
+				});
+			}
+			await tx.departure.update({
+				where: { id: departureId },
+				data: { status: "CANCELLED" },
+			});
+			if (departure.trip)
+				await tx.trip.update({
+					where: { id: departure.trip.id },
+					data: { status: "CANCELLED" },
+				});
+			await audit(
+				tx,
+				driver.id,
+				"Departure",
+				departureId,
+				"CANCELLED_BY_DRIVER",
+				{},
+			);
+			return { cancelled: true, affectedPassengers: departure.rides.length };
+		},
+		{ isolationLevel: "ReadCommitted" },
+	);
+}
+
+export async function updateTrip(driver, departureId, nextStatus) {
+	return prisma.$transaction(
+		async (tx) => {
+			await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${driver.id} FOR UPDATE`;
+			const departure = await tx.departure.findUnique({
+				where: { id: departureId },
+				include: { trip: true, rides: { where: { status: "CONFIRMED" } } },
+			});
+			if (!departure || departure.driverId !== driver.id || !departure.trip)
+				throw httpError("Trip not found", 404);
+			const transitions = {
+				ARRIVED: "NOT_STARTED",
+				IN_PROGRESS: "ARRIVED",
+				COMPLETED: "IN_PROGRESS",
+			};
+			if (departure.trip.status !== transitions[nextStatus])
+				throw httpError(
+					`Cannot change trip from ${departure.trip.status} to ${nextStatus}`,
+					409,
+				);
+			if (nextStatus === "IN_PROGRESS") {
+				const inProgress = await tx.trip.findFirst({
+					where: {
+						status: "IN_PROGRESS",
+						departure: { is: { driverId: driver.id } },
+					},
+				});
+				if (inProgress)
+					throw httpError(
+						"Complete the active trip before starting another",
+						409,
+					);
+			}
+			const now = new Date();
+			const data =
+				nextStatus === "ARRIVED"
+					? { status: nextStatus, arrivedAt: now }
+					: nextStatus === "IN_PROGRESS"
+						? { status: nextStatus, startedAt: now }
+						: { status: nextStatus, completedAt: now };
+			const trip = await tx.trip.update({
+				where: { id: departure.trip.id },
+				data,
+			});
+			console.log(departure.rides.length);
+
+			if (nextStatus === "ARRIVED") {
+				await tx.notification.createMany({
+					data: departure.rides.map((ride) => ({
+						userId: ride.passengerId,
+						type: "Driver Arrived",
+						message: "Driver has arrived.",
+					})),
+				});
+			}
+			if (nextStatus === "IN_PROGRESS") {
+				await tx.departure.update({
+					where: { id: departureId },
+					data: { status: "CLOSED" },
+				});
+				await tx.notification.createMany({
+					data: departure.rides.map((ride) => ({
+						userId: ride.passengerId,
+						type: "Trip In Progress",
+						message: "Your ride has started, enjoy your trip.",
+					})),
+				});
+			}
+			if (nextStatus === "COMPLETED") {
+				await tx.ride.updateMany({
+					where: { departureId, status: "CONFIRMED" },
+					data: { status: "COMPLETED" },
+				});
+				await tx.notification.createMany({
+					data: departure.rides.map((ride) => ({
+						userId: ride.passengerId,
+						type: "Trip Completed",
+						message: "Your ride has been completed successfully.",
+					})),
+				});
+			}
+			await audit(tx, driver.id, "Trip", trip.id, nextStatus, {});
+			return trip;
+		},
+		{ isolationLevel: "ReadCommitted" },
+	);
+}

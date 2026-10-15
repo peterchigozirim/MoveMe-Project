@@ -29,4 +29,26 @@ router.post(
 	departureMiddleware.validatePublishDeparture,
 	departureController.handlePublishDeparture,
 );
+
+router.get(
+	"/get-departure",
+	authenticate,
+	checkDriver,
+	departureController.handleDriverDeparture,
+);
+
+router.post(
+	"/cancel-departure",
+	authenticate,
+	checkDriver,
+	departureMiddleware.validateCancelDeparture,
+	departureController.handleCancelDeparture,
+);
+router.post(
+	"/update-trip",
+	authenticate,
+	checkDriver,
+	departureMiddleware.validateUpdateTrip,
+	departureController.handleUpdateTrip,
+);
 export default router;
