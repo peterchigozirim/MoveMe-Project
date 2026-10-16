@@ -23,11 +23,11 @@ For production, apply committed migrations with `npm run db:deploy`; use a manag
 
 The seed command creates these accounts. All use the local `DEMO_ACCOUNT_PASSWORD` value; the password is not stored in source control.
 
-| Role          | Email                    |
-| ------------- | ------------------------ |
-| Passenger     | `passenger@moveme.local` |
-| Driver        | `driver@moveme.local`    |
-| Administrator | `admin@moveme.local`     |
+| Role          | Email                  |
+| ------------- | ---------------------- |
+| Passenger     | `passenger@moveme.com` |
+| Driver        | `driver@moveme.com`    |
+| Administrator | `admin@moveme.com`     |
 
 The seeded driver is enabled and has a vehicle. The seed also configures Central Station to Airport (45 minutes, NGN 18,000 solo, NGN 6,500 per pooled seat). Publish a future departure from the driver account before searching as the passenger.
 

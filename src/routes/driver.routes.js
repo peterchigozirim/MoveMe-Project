@@ -22,6 +22,13 @@ router.get(
 	departureController.handleGetAllDepartures,
 );
 
+router.get(
+	"/get-one-departures/:id",
+	authenticate,
+	checkDriver,
+	departureController.handleGetOneDeparture,
+);
+
 router.post(
 	"/publish-departure",
 	authenticate,

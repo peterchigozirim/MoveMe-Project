@@ -4,6 +4,7 @@ import {
 	cancelReservation,
 	getAllReservations,
 	getReservation,
+	getRoute,
 } from "../../services/passenger/rides.service.js";
 
 // Corrected the class name from BoolRideController to BookRideController
@@ -18,6 +19,18 @@ class BookRideController {
 			});
 			res.json({
 				data: departures,
+				status: true,
+			});
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	getAllRoute = async (req, res, next) => {
+		try {
+			const route = await getRoute();
+			res.json({
+				data: route,
 				status: true,
 			});
 		} catch (error) {

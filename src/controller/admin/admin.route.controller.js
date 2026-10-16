@@ -6,7 +6,7 @@ const adminRoutesService = new AdminRoutesService();
 class AdminRoutesController {
 	async listRoutes(req, res, next) {
 		try {
-			const routes = await adminRoutesService.listRoutes();
+			const routes = await adminRoutesService.listAllRoutes();
 			res.json({
 				status: "success",
 				message: "Routes retrieved successfully",
