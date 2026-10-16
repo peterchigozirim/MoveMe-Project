@@ -8,8 +8,7 @@ import AuthController from "../controller/auth/auth.controller.js";
 import { authenticate } from "../middlewares/session.middleware.js";
 
 const router = Router();
-const { registerUser, loginUser, getProfile, updateUser, changePassword } =
-	AuthController;
+const { registerUser, loginUser, getProfile, changePassword } = AuthController;
 
 router.post("/register", registerInput, registerUser);
 

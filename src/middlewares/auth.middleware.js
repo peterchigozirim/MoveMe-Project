@@ -8,6 +8,9 @@ const authenticate = (req, res, next) => {
 };
 
 const registerInput = (req, res, next) => {
+	if (!req.body) {
+		return res.status(400).json({ message: "Request body is missing" });
+	}
 	const { error, value } = joi
 		.object({
 			firstName: joi.string().min(1).required(),
@@ -34,6 +37,9 @@ const registerInput = (req, res, next) => {
 };
 
 const loginInput = (req, res, next) => {
+	if (!req.body) {
+		return res.status(400).json({ message: "Request body is missing" });
+	}
 	const { error, value } = joi
 		.object({
 			email: joi.string().email().required(),
@@ -52,6 +58,9 @@ const loginInput = (req, res, next) => {
 };
 
 const changePasswordInput = (req, res, next) => {
+	if (!req.body) {
+		return res.status(400).json({ message: "Request body is missing" });
+	}
 	const { error, value } = joi
 		.object({
 			oldPassword: joi.string().min(8).required(),
