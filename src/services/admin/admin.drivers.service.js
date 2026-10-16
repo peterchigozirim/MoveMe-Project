@@ -11,7 +11,9 @@ class AdminDriversService {
 				lastName: true,
 				email: true,
 				driverEnabled: true,
+				createdAt: true,
 				_count: { select: { vehicles: true } },
+				vehicles: true,
 			},
 			orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
 		});

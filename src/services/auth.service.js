@@ -11,6 +11,7 @@ const SAFE_USER_FIELDS = {
 	email: true,
 	phone: true,
 	role: true,
+	driverEnabled: true,
 	createdAt: true,
 };
 

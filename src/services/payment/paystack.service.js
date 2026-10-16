@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import prisma from "../../config/database.js";
 import env from "../../config/env.js";
 import { httpError } from "../../utils/http-error.js";
+import { emitToUser } from "../../websocket/realtime.js";
 
 const PAYSTACK_URL = "https://api.paystack.co";
 // A UUID is 36 characters; references are `<paymentId>-<timestamp>`.
@@ -79,11 +80,12 @@ export async function initializePayment(passenger, paymentId) {
 // Settles a payment from a verified Paystack transaction. Idempotent: the
 // webhook and the client-triggered verify can both call it safely.
 async function settle(paymentId, transaction) {
-	return prisma.$transaction(
+	let paidEvent = null;
+	const result = await prisma.$transaction(
 		async (tx) => {
 			const payment = await tx.payment.findUnique({
 				where: { id: paymentId },
-				include: { ride: true },
+				include: { ride: { include: { departure: true } } },
 			});
 			if (!payment) throw httpError("Payment not found", 404);
 			await tx.$queryRaw`SELECT id FROM "Departure" WHERE id = ${payment.ride.departureId} FOR UPDATE`;
@@ -175,10 +177,24 @@ async function settle(paymentId, transaction) {
 				reference: transaction.reference,
 				gateway: "paystack",
 			});
+			paidEvent = {
+				driverId: payment.ride.departure.driverId,
+				rideId: current.rideId,
+				departureId: payment.ride.departureId,
+			};
 			return updated;
 		},
 		{ isolationLevel: "ReadCommitted" },
 	);
+	if (paidEvent) {
+		emitToUser(paidEvent.driverId, "payment:completed", {
+			rideId: paidEvent.rideId,
+			departureId: paidEvent.departureId,
+			paymentId,
+			message: "A passenger completed payment for a ride.",
+		});
+	}
+	return result;
 }
 
 function paymentIdFromReference(reference) {

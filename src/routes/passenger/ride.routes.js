@@ -17,6 +17,13 @@ router.post(
 );
 
 router.get(
+	"/all-routes",
+	authenticate,
+	checkPassenger,
+	bookRideController.getAllRoute,
+);
+
+router.get(
 	"/",
 	authenticate,
 	checkPassenger,

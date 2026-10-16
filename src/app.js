@@ -8,37 +8,41 @@ import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import env from "./config/env.js";
 
-const app = express();
+function createApp() {
+	const app = express();
 
-app.use(helmet());
-app.use(cors({ origin: env.clientOrigin === "*" ? true : env.clientOrigin }));
-app.use(
-	express.json({
-		// Paystack signs the exact raw bytes, so keep them for webhook verification.
-		verify: (req, res, buf) => {
-			req.rawBody = buf;
-		},
-	}),
-);
-// app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
+	app.use(helmet());
+	app.use(cors({ origin: env.clientOrigin === "*" ? true : env.clientOrigin }));
+	app.use(
+		express.json({
+			// Paystack signs the exact raw bytes, so keep them for webhook verification.
+			verify: (req, res, buf) => {
+				req.rawBody = buf;
+			},
+		}),
+	);
+	// app.use(express.urlencoded({ extended: true }));
+	app.use(morgan("dev"));
 
-app.get("/up", (req, res) => {
-	res.status(200).json({
-		success: true,
-		message: "API is running",
+	app.get("/up", (req, res) => {
+		res.status(200).json({
+			success: true,
+			message: "API is running",
+		});
 	});
-});
 
-app.get("/openapi.yaml", (req, res) => {
-	res.sendFile(fileURLToPath(new URL("../openapi.yaml", import.meta.url)));
-});
-app.use("/api/v1", routes);
+	app.get("/openapi.yaml", (req, res) => {
+		res.sendFile(fileURLToPath(new URL("../openapi.yaml", import.meta.url)));
+	});
+	app.use("/api/v1", routes);
 
-app.use((req, res) => {
-	res.status(404).json({ message: "Endpoint not found" });
-});
+	app.use((req, res) => {
+		res.status(404).json({ message: "Endpoint not found" });
+	});
 
-app.use(errorHandler);
+	app.use(errorHandler);
 
-export default app;
+	return app;
+}
+
+export default createApp;

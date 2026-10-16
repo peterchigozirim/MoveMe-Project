@@ -70,6 +70,7 @@ export async function searchRoutes({ destination = null, origin = null }) {
 					totalSeats: true,
 					status: true,
 					vehicle: true,
+					driver: true,
 				},
 			},
 		},
@@ -78,6 +79,33 @@ export async function searchRoutes({ destination = null, origin = null }) {
 		throw httpError("Destination or origin not found", 404);
 	}
 	return routes;
+}
+
+export async function getRoute() {
+	const route = await prisma.route.findMany({
+		where: {
+			isActive: true,
+			departures: { some: { status: { not: "CANCELLED" } } },
+		},
+		include: {
+			departures: {
+				where: { status: { not: "CANCELLED" } },
+				select: {
+					id: true,
+					departureTime: true,
+					durationMinutes: true,
+					mode: true,
+					totalSeats: true,
+					status: true,
+					vehicle: true,
+				},
+			},
+		},
+	});
+	if (!route.length) {
+		throw httpError("Route not found", 404);
+	}
+	return route;
 }
 
 export async function createReservation(

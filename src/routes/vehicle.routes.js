@@ -6,12 +6,7 @@ import { checkDriver } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
-router.post(
-	"/vehicle",
-	authenticate,
-	validateVehicle,
-	VehicleController.addVehicle,
-);
-router.get("/vehicle", authenticate, checkDriver, VehicleController.getVehicle);
+router.post("/", authenticate, validateVehicle, VehicleController.addVehicle);
+router.get("/", authenticate, checkDriver, VehicleController.getVehicle);
 
 export default router;

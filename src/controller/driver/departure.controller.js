@@ -3,6 +3,7 @@ import {
 	publishDeparture,
 	getAllDepartures,
 	getDriverDepartures,
+	getOneDeparture,
 	cancelDeparture,
 	updateTrip,
 } from "../../services/driver/departure.service.js";
@@ -45,6 +46,16 @@ class DepartureController {
 		try {
 			const driverId = req.user.id;
 			const departure = await getDriverDepartures(driverId);
+			res.json({ success: true, data: departure });
+		} catch (error) {
+			next(error);
+		}
+	}
+
+	async handleGetOneDeparture(req, res, next) {
+		try {
+			const { id } = req.params;
+			const departure = await getOneDeparture(req.user, id);
 			res.json({ success: true, data: departure });
 		} catch (error) {
 			next(error);

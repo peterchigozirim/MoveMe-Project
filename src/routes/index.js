@@ -8,6 +8,7 @@ import adminDriverRoutes from "./admin/admin.driver.routes.js";
 import rideRoutes from "./passenger/ride.routes.js";
 import paymentRoutes from "./payment/payment.routes.js";
 import driverRoutes from "./driver.routes.js";
+import notificationRoutes from "./notification.routes.js";
 
 const router = Router();
 
@@ -20,14 +21,19 @@ router.get("/", (req, res) => {
 
 router.use("/auth", authRoutes);
 // router.use("/", moveMeRoutes);
-router.use("/", vehicleRoutes);
+router.use("/vehicle", vehicleRoutes);
 
 // Admin routes
 router.use("/admin/users", adminUserRoutes);
 router.use("/admin/routes", adminRouteRoutes);
 router.use("/admin/drivers", adminDriverRoutes);
-router.use("/passenger/rides", rideRoutes);
+// driver routes
 router.use("/driver", driverRoutes);
+// passenger routes
+router.use("/passenger/rides", rideRoutes);
+// Payment routes
 router.use("/payments", paymentRoutes);
+// Notification routes
+router.use("/notifications", notificationRoutes);
 
 export default router;
