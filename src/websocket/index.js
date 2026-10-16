@@ -1,5 +1,7 @@
-import authService from "../services/auth.service.js";
+import AuthService from "../services/auth.service.js";
 import { setIO } from "./realtime.js";
+
+const authService = new AuthService();
 
 function initSockets(io) {
 	io.use((socket, next) => {
