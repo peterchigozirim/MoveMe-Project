@@ -29,6 +29,8 @@
 		"morgan": "^1.12.1",
 		"pg": "^8.23.1",
 		"socket.io": "^4.8.4",
+		"swagger-ui-express": "^5.0.1",
+		"yaml": "^2.8.1",
 		"zod": "^4.6.5"
 	},
 	"devDependencies": {

@@ -15,7 +15,7 @@ MoveMe is a backend-only, fixed-route ride coordination API. Drivers publish sol
 3. Generate the Prisma client with `npm run db:generate`.
 4. Create and apply the initial migration with `npm run db:migrate -- --name init`.
 5. To create demo accounts and sample route/vehicle records, set `DEMO_ACCOUNT_PASSWORD` in `.env` to a unique password of at least 10 characters, then run `npm run db:seed`.
-6. Start the API with `npm run dev`. The health check is `http://localhost:5000/up`, API routes are under `http://localhost:5000/api/v1`, and the OpenAPI contract is at `http://localhost:5000/openapi.yaml` (replace `5000` with the configured port).
+6. Start the API with `npm run dev`. The health check is `http://localhost:5000/up`, API routes are under `http://localhost:5000/api/v1`, the OpenAPI contract is at `http://localhost:5000/openapi.yaml`, and Swagger UI is at `http://localhost:5000/api-docs` (replace `5000` with the configured port).
 
 For production, apply committed migrations with `npm run db:deploy`; use a managed secret store, set `NODE_ENV=production` and an explicit `CLIENT_ORIGIN`, then run `npm start`. Do not use the demo seed in production.
 
