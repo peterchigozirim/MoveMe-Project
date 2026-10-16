@@ -2,7 +2,10 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import swaggerUi from "swagger-ui-express";
+import YAML from "yaml";
 
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
@@ -10,6 +13,8 @@ import env from "./config/env.js";
 
 function createApp() {
 	const app = express();
+	const openApiPath = fileURLToPath(new URL("../openapi.yaml", import.meta.url));
+	const openApiDoc = YAML.parse(fs.readFileSync(openApiPath, "utf8"));
 
 	app.use(helmet());
 	app.use(cors({ origin: env.clientOrigin === "*" ? true : env.clientOrigin }));
@@ -32,8 +37,13 @@ function createApp() {
 	});
 
 	app.get("/openapi.yaml", (req, res) => {
-		res.sendFile(fileURLToPath(new URL("../openapi.yaml", import.meta.url)));
+		res.sendFile(openApiPath);
 	});
+	app.use(
+		"/api-docs",
+		swaggerUi.serve,
+		swaggerUi.setup(openApiDoc, { explorer: true }),
+	);
 	app.use("/api/v1", routes);
 
 	app.use((req, res) => {
