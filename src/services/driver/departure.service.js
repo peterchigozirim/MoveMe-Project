@@ -150,7 +150,7 @@ export async function getOneDeparture(driver, departureId) {
 			route: true,
 			vehicle: true,
 			trip: true,
-			rides: { include: { passenger: true } },
+			rides: { where: { status: "CONFIRMED" }, include: { passenger: true } },
 		},
 	});
 	if (!departure) {
@@ -263,6 +263,10 @@ export async function cancelDeparture(driver, departureId) {
 				await audit(tx, driver.id, "Ride", ride.id, "CANCELLED_BY_DRIVER", {
 					refundIssued,
 				});
+				emitToUsers(ride.passengerId, "notification", {
+					type: "Departure Cancelled",
+					message: "Your departure was cancelled by the driver.",
+				});
 			}
 			await tx.departure.update({
 				where: { id: departureId },
@@ -367,6 +371,10 @@ export async function updateTrip(driver, departureId, nextStatus) {
 							message: notificationMessage,
 						},
 					});
+					emitToUsers([ride.passengerId], "notification", {
+						type: nextStatus,
+						message: notificationMessage,
+					});
 				}),
 			);
 
@@ -376,10 +384,5 @@ export async function updateTrip(driver, departureId, nextStatus) {
 		},
 		{ isolationLevel: "ReadCommitted" },
 	);
-	emitToUsers(passengerIds, "trip:updated", {
-		departureId,
-		tripId: trip.id,
-		status: nextStatus,
-	});
 	return trip;
 }

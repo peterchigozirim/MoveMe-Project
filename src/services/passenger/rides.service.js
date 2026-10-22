@@ -220,6 +220,7 @@ export async function getAllReservations(passenger) {
 		include: {
 			payment: {
 				select: {
+					id: true,
 					amount: true,
 					currency: true,
 					status: true,
