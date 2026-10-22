@@ -10,7 +10,8 @@
 		"db:migrate": "prisma migrate dev",
 		"db:deploy": "prisma migrate deploy",
 		"db:seed": "prisma db seed",
-		"postinstall": "prisma skills sync || exit 0"
+		"postinstall": "prisma skills sync || exit 0",
+		"worker": "node src/jobs/workers/departure.worker.js"
 	},
 	"keywords": [],
 	"author": "",
@@ -20,10 +21,12 @@
 		"@prisma/adapter-pg": "^7.10.0",
 		"axios": "^1.20.0",
 		"bcrypt": "^6.0.0",
+		"bullmq": "^6.3.19",
 		"cors": "^2.8.6",
 		"dotenv": "^18.0.8",
 		"express": "^5.3.0",
 		"helmet": "^8.3.0",
+		"ioredis": "^6.0.0",
 		"joi": "^18.2.9",
 		"jsonwebtoken": "^9.0.3",
 		"morgan": "^1.12.1",

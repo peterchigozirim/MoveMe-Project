@@ -10,10 +10,13 @@ import YAML from "yaml";
 import routes from "./routes/index.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
 import env from "./config/env.js";
+import redis from "./config/redis.js";
 
 function createApp() {
 	const app = express();
-	const openApiPath = fileURLToPath(new URL("../openapi.yaml", import.meta.url));
+	const openApiPath = fileURLToPath(
+		new URL("../openapi.yaml", import.meta.url),
+	);
 	const openApiDoc = YAML.parse(fs.readFileSync(openApiPath, "utf8"));
 
 	app.use(helmet());
@@ -34,6 +37,22 @@ function createApp() {
 			success: true,
 			message: "API is running",
 		});
+	});
+
+	app.get("/redis", async (req, res) => {
+		try {
+			const redisStatus = await redis.ping();
+
+			res.json({
+				api: "running",
+				redis: redisStatus === "PONG" ? "connected" : "unavailable",
+			});
+		} catch {
+			res.status(503).json({
+				api: "running",
+				redis: "disconnected",
+			});
+		}
 	});
 
 	app.get("/openapi.yaml", (req, res) => {

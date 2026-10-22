@@ -87,6 +87,7 @@ export async function getRoute() {
 			isActive: true,
 			departures: { some: { status: { not: "CANCELLED" } } },
 		},
+		orderBy: { createdAt: "desc" },
 		include: {
 			departures: {
 				where: { status: { not: "CANCELLED" } },
