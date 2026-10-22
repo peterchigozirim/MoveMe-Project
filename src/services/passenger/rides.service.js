@@ -87,6 +87,7 @@ export async function getRoute() {
 			isActive: true,
 			departures: { some: { status: { not: "CANCELLED" } } },
 		},
+		orderBy: { createdAt: "desc" },
 		include: {
 			departures: {
 				where: { status: { not: "CANCELLED" } },
@@ -219,6 +220,7 @@ export async function getAllReservations(passenger) {
 		include: {
 			payment: {
 				select: {
+					id: true,
 					amount: true,
 					currency: true,
 					status: true,
