@@ -206,17 +206,15 @@ function paymentIdFromReference(reference) {
 export async function verifyPayment(reference, passenger = null) {
 	const paymentId = paymentIdFromReference(reference);
 	if (!paymentId) throw httpError("Invalid payment reference", 400);
-	if (passenger) {
-		const owned = await prisma.payment.findUnique({
-			where: { id: paymentId },
-			select: {
-				passengerId: true,
-				ride: { select: { departure: { select: { driverId: true } } } },
-			},
-		});
-		if (!owned || owned.passengerId !== passenger.id)
-			throw httpError("Payment not found", 404);
-	}
+	const owned = await prisma.payment.findUnique({
+		where: { id: paymentId },
+		select: {
+			passengerId: true,
+			ride: { select: { departure: { select: { driverId: true } } } },
+		},
+	});
+	if (!owned || (passenger && owned.passengerId !== passenger.id))
+		throw httpError("Payment not found", 404);
 	const transaction = await paystackRequest(
 		`/transaction/verify/${encodeURIComponent(reference)}`,
 	);

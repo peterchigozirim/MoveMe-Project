@@ -14,6 +14,12 @@ class AdminRouteService {
 		return prisma.route.findMany({ orderBy: { origin: "asc" } });
 	};
 
+	getRouteById = async (routeId) => {
+		const route = await prisma.route.findUnique({ where: { id: routeId } });
+		if (!route) throw httpError("Route not found", 404);
+		return route;
+	};
+
 	createRoute = async (actorId, input) => {
 		const existingRoute = await prisma.route.findFirst({
 			where: {

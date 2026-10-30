@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: MoveMe API
   version: 1.0.0
-  description: Fixed-route departures, seat reservations, simulated payments, and trip operations.
+  description: Ride booking, payments, driver operations, issue reporting, and administration.
 servers:
   - url: /api/v1
 security:
@@ -268,29 +268,58 @@ paths:
       responses:
         "200": { description: Updated notification }
   /issues:
+    get:
+      summary: List issues reported by the signed-in user.
+      responses:
+        "200": { description: Reporter's issue list }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       summary: Report an operational issue.
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [title, description]
-              properties:
-                title: { type: string, minLength: 3 }
-                description: { type: string, minLength: 3 }
+            schema: { $ref: "#/components/schemas/IssueInput" }
       responses:
         "201": { description: Created issue }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /issues/{id}:
+    get:
+      summary: Get an issue reported by the signed-in user.
+      parameters:
+        - $ref: "#/components/parameters/issueId"
+      responses:
+        "200": { description: Requested issue }
+        "404": { $ref: "#/components/responses/NotFound" }
   /admin/issues:
     get:
       summary: List operational issues with reporter identity.
       x-roles: [ADMIN]
       responses:
         "200": { description: Issue list }
-  /admin/issues/{issueId}:
-    patch:
-      summary: Update issue handling status.
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      summary: Create an operational issue on behalf of the signed-in admin.
+      x-roles: [ADMIN]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssueInput" }
+      responses:
+        "201": { description: Created issue }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /admin/issues/{id}:
+    get:
+      summary: Get an operational issue by ID.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/issueId"
+      responses:
+        "200": { description: Requested issue }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      summary: Update an issue's handling status.
       x-roles: [ADMIN]
       parameters:
         - $ref: "#/components/parameters/issueId"
@@ -298,36 +327,70 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [status]
-              properties:
-                status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED] }
+            schema: { $ref: "#/components/schemas/IssueStatusUpdate" }
       responses:
         "200": { description: Updated issue }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      summary: Delete an operational issue.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/issueId"
+      responses:
+        "200": { description: Deleted issue }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /admin/audits:
+    get:
+      summary: List audit log entries.
+      x-roles: [ADMIN]
+      responses:
+        "200": { description: Audit log entries }
+        "500": { description: Audit log retrieval failed }
+  /admin/audits/{id}:
+    get:
+      summary: Get an audit log entry by ID.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/auditId"
+      responses:
+        "200": { description: Requested audit log entry }
+        "500": { description: Audit log retrieval failed }
   /admin/drivers:
     get:
       summary: List driver accounts and their access state.
       x-roles: [ADMIN]
       responses:
         "200": { description: Driver roster }
-  /admin/drivers/{userId}/access:
-    patch:
-      summary: Enable or suspend a driver's departure publishing access.
+        "404": { $ref: "#/components/responses/NotFound" }
+  /admin/drivers/{id}:
+    get:
+      summary: Get a driver account by ID.
       x-roles: [ADMIN]
       parameters:
-        - $ref: "#/components/parameters/userId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [enabled]
-              properties:
-                enabled: { type: boolean }
+        - $ref: "#/components/parameters/driverId"
       responses:
-        "200": { description: Updated driver access }
+        "200": { description: Driver account }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /admin/drivers/{id}/enable:
+    post:
+      summary: Enable a driver's departure publishing access.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/driverId"
+      responses:
+        "200": { description: Enabled driver account }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /admin/drivers/{id}/disable:
+    post:
+      summary: Disable a driver's departure publishing access.
+      x-roles: [ADMIN]
+      parameters:
+        - $ref: "#/components/parameters/driverId"
+      responses:
+        "200": { description: Disabled driver account }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
 components:
   securitySchemes:
@@ -381,14 +444,21 @@ components:
     issueId:
       {
         in: path,
-        name: issueId,
+        name: id,
         required: true,
         schema: { type: string, format: uuid },
       }
-    userId:
+    auditId:
       {
         in: path,
-        name: userId,
+        name: id,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+    driverId:
+      {
+        in: path,
+        name: id,
         required: true,
         schema: { type: string, format: uuid },
       }
@@ -403,6 +473,16 @@ components:
         soloFare: { type: number, exclusiveMinimum: 0 }
         pooledFare: { type: number, exclusiveMinimum: 0 }
         isActive: { type: boolean }
+    IssueInput:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string, minLength: 1 }
+        description: { type: string, minLength: 1 }
+    IssueStatusUpdate:
+      type: object
+      properties:
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED] }
     VehicleInput:
       type: object
       required: [registration, make, model, seats]
