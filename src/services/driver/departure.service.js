@@ -6,6 +6,7 @@ import {
 	intervalsOverlap,
 	reservationIsActive,
 } from "../../utils/availability.js";
+import departureQueue from "../../jobs/queue/departure.queue.js";
 
 const activeRideStatuses = ["PENDING_PAYMENT", "CONFIRMED"];
 
@@ -113,6 +114,17 @@ export async function publishDeparture(driver, input) {
 				mode: input.mode,
 				fare: fare.toString(),
 			});
+			await departureQueue.add(
+				"activate-departure",
+				{ departureId: departure.id },
+				{
+					attempts: 3,
+					backoff: {
+						type: "exponential",
+						delay: 2000,
+					},
+				},
+			);
 			return departure;
 		},
 		{ isolationLevel: "ReadCommitted" },
@@ -122,6 +134,7 @@ export async function publishDeparture(driver, input) {
 export async function getAllDepartures(driver) {
 	const departures = await prisma.departure.findMany({
 		where: { driverId: driver.id },
+		orderBy: { createdAt: "desc" },
 		include: { route: true, vehicle: true },
 	});
 	if (!departures.length) {
@@ -137,7 +150,7 @@ export async function getOneDeparture(driver, departureId) {
 			route: true,
 			vehicle: true,
 			trip: true,
-			rides: { include: { passenger: true } },
+			rides: { where: { status: "CONFIRMED" }, include: { passenger: true } },
 		},
 	});
 	if (!departure) {
@@ -184,7 +197,7 @@ export async function getDriverDepartures(driverId) {
 				},
 			},
 		},
-		orderBy: { departureTime: "asc" },
+		orderBy: { departureTime: "desc" },
 	});
 }
 
@@ -249,6 +262,10 @@ export async function cancelDeparture(driver, departureId) {
 				});
 				await audit(tx, driver.id, "Ride", ride.id, "CANCELLED_BY_DRIVER", {
 					refundIssued,
+				});
+				emitToUsers(ride.passengerId, "notification", {
+					type: "Departure Cancelled",
+					message: "Your departure was cancelled by the driver.",
 				});
 			}
 			await tx.departure.update({
@@ -354,6 +371,10 @@ export async function updateTrip(driver, departureId, nextStatus) {
 							message: notificationMessage,
 						},
 					});
+					emitToUsers([ride.passengerId], "notification", {
+						type: nextStatus,
+						message: notificationMessage,
+					});
 				}),
 			);
 
@@ -363,10 +384,5 @@ export async function updateTrip(driver, departureId, nextStatus) {
 		},
 		{ isolationLevel: "ReadCommitted" },
 	);
-	emitToUsers(passengerIds, "trip:updated", {
-		departureId,
-		tripId: trip.id,
-		status: nextStatus,
-	});
 	return trip;
 }

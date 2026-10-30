@@ -1,5 +1,6 @@
 import prisma from "../../config/database.js";
 import { httpError } from "../../utils/http-error.js";
+import { emitToGeneral } from "../../websocket/realtime.js";
 
 class AdminRouteService {
 	listRoutes = () => {
@@ -11,6 +12,12 @@ class AdminRouteService {
 
 	listAllRoutes = () => {
 		return prisma.route.findMany({ orderBy: { origin: "asc" } });
+	};
+
+	getRouteById = async (routeId) => {
+		const route = await prisma.route.findUnique({ where: { id: routeId } });
+		if (!route) throw httpError("Route not found", 404);
+		return route;
 	};
 
 	createRoute = async (actorId, input) => {
@@ -35,6 +42,10 @@ class AdminRouteService {
 					});
 					return route;
 				},
+				emitToGeneral("new_route", {
+					type: "New Route Created",
+					message: "A new route has been created.",
+				}),
 				{ maxWait: 5000, timeout: 10000 },
 			);
 		}
@@ -61,6 +72,10 @@ class AdminRouteService {
 					details: input,
 				},
 			});
+			emitToGeneral("new_route", {
+				type: "Route Updated",
+				message: "A route has been updated.",
+			});
 			return updated;
 		});
 	};
@@ -77,6 +92,10 @@ class AdminRouteService {
 					action: "DELETED",
 					details: null,
 				},
+			});
+			emitToGeneral("new_route", {
+				type: "Route Deleted",
+				message: "A route has been deleted.",
 			});
 			return deleted;
 		});

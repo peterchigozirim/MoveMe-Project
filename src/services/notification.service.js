@@ -5,6 +5,7 @@ class NotificationService {
 	async getNotifications(userId) {
 		const notifications = await prisma.notification.findMany({
 			where: { userId },
+			orderBy: { createdAt: "desc" },
 		});
 		if (!notifications.length) {
 			throw new httpError("No notifications found", 404);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import AdminDriverController from "../../middlewares/admin/admin.driver.controller.js";
+import AdminDriverController from "../../controller/admin/admin.driver.controller.js";
 import { authenticate } from "../../middlewares/session.middleware.js";
 import { checkAdmin } from "../../middlewares/role.middleware.js";
 
