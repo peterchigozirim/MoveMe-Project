@@ -1,8 +1,11 @@
 import prisma from "../../config/database.js";
 import { httpError } from "../../utils/http-error.js";
+import { emitToUsers } from "../../websocket/realtime.js";
 
 export async function getAllIssues() {
-	const issues = await prisma.operationalIssue.findMany();
+	const issues = await prisma.operationalIssue.findMany({
+		orderBy: { createdAt: "desc" },
+	});
 	if (!issues || issues.length === 0) {
 		throw httpError("No issues found", 404);
 	}
@@ -20,8 +23,6 @@ export async function getIssueById(issueId) {
 }
 
 export async function createIssue(data, userId) {
-	console.log("joije");
-
 	const issue = await prisma.operationalIssue.create({
 		data: { ...data, reporterId: userId },
 	});
@@ -41,6 +42,10 @@ export async function updateIssue(issueId, data) {
 	if (!issue) {
 		throw httpError("Issue could not be updated", 500);
 	}
+	emitToUsers([issue.reporterId], "issue_updated", {
+		type: "update",
+		message: "Issue has been updated",
+	});
 	return issue;
 }
 

@@ -5,7 +5,7 @@ import { checkAdmin } from "../../middlewares/role.middleware.js";
 import {
 	createIssueSchema,
 	updateIssueSchema,
-} from "../../middlewares/admin/admin.issue.middleware.js";
+} from "../../middlewares/issue.middleware.js";
 
 const router = Router();
 const adminIssueController = new AdminIssueController();

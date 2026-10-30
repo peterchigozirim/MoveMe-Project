@@ -11,6 +11,7 @@ import rideRoutes from "./passenger/ride.routes.js";
 import paymentRoutes from "./payment/payment.routes.js";
 import driverRoutes from "./driver.routes.js";
 import notificationRoutes from "./notification.routes.js";
+import IssueRoutes from "./issue.routes.js";
 
 const router = Router();
 
@@ -24,6 +25,8 @@ router.get("/", (req, res) => {
 router.use("/auth", authRoutes);
 // router.use("/", moveMeRoutes);
 router.use("/vehicle", vehicleRoutes);
+// issue routes
+router.use("/issues", IssueRoutes);
 
 // Admin routes
 router.use("/admin/users", adminUserRoutes);
