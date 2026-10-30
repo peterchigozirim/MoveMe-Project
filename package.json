@@ -31,6 +31,7 @@
 		"jsonwebtoken": "^9.0.3",
 		"morgan": "^1.12.1",
 		"pg": "^8.23.1",
+		"prisma": "^7.10.1",
 		"socket.io": "^4.8.4",
 		"swagger-ui-express": "^5.0.1",
 		"yaml": "^2.8.1",
@@ -43,7 +44,6 @@
 		"nodemon": "^3.1.14",
 		"npm": "^12.2.0",
 		"pg": "8.23.0",
-		"prettier": "^3.9.9",
-		"prisma": "^7.10.0"
+		"prettier": "^3.9.9"
 	}
 }
