@@ -187,7 +187,7 @@ async function settle(paymentId, transaction) {
 		{ isolationLevel: "ReadCommitted" },
 	);
 	if (paidEvent) {
-		emitToUser(paidEvent.driverId, "payment:completed", {
+		emitToUser(paidEvent.driverId, "departure_updated", {
 			rideId: paidEvent.rideId,
 			departureId: paidEvent.departureId,
 			paymentId,
@@ -209,7 +209,10 @@ export async function verifyPayment(reference, passenger = null) {
 	if (passenger) {
 		const owned = await prisma.payment.findUnique({
 			where: { id: paymentId },
-			select: { passengerId: true },
+			select: {
+				passengerId: true,
+				ride: { select: { departure: { select: { driverId: true } } } },
+			},
 		});
 		if (!owned || owned.passengerId !== passenger.id)
 			throw httpError("Payment not found", 404);
@@ -217,6 +220,11 @@ export async function verifyPayment(reference, passenger = null) {
 	const transaction = await paystackRequest(
 		`/transaction/verify/${encodeURIComponent(reference)}`,
 	);
+	const driver = owned.ride.departure.driverId;
+	emitToUser(driver, "departure_updated", {
+		type: "Departure Status Updated",
+		message: `departures have been closed.`,
+	});
 	return settle(paymentId, transaction);
 }
 

@@ -250,7 +250,10 @@ export async function getAllReservations(passenger) {
 export async function getReservation(passenger, rideId) {
 	const reservation = await prisma.ride.findUnique({
 		where: { id: rideId, passengerId: passenger.id },
-		include: { payment: true, departure: { include: { route: true } } },
+		include: {
+			payment: true,
+			departure: { include: { route: true, driver: true, trip: true } },
+		},
 	});
 	if (!reservation) {
 		throw httpError("Reservation not found", 404);
