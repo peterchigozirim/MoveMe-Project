@@ -61,7 +61,10 @@ function createApp() {
 	app.use(
 		"/api-docs",
 		swaggerUi.serve,
-		swaggerUi.setup(openApiDoc, { explorer: true }),
+		swaggerUi.setup(openApiDoc, {
+			explorer: true,
+			customSiteTitle: `${openApiDoc.info.title} Documentation`,
+		}),
 	);
 	app.use("/api/v1", routes);
 

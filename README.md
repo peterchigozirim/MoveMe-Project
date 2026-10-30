@@ -4,7 +4,7 @@ MoveMe is a backend-only, fixed-route ride coordination API. Drivers publish sol
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - PostgreSQL 14 or newer
 - A database created for MoveMe
 
@@ -23,11 +23,11 @@ For production, apply committed migrations with `npm run db:deploy`; use a manag
 
 The seed command creates these accounts. All use the local `DEMO_ACCOUNT_PASSWORD` value; the password is not stored in source control.
 
-| Role          | Email                  |
-| ------------- | ---------------------- |
-| Passenger     | `passenger@moveme.com` |
-| Driver        | `driver@moveme.com`    |
-| Administrator | `admin@moveme.com`     |
+| Role          | Email                 | Password                |
+| ------------- | --------------------- | ----------------------- |
+| Passenger     | `passenger@gmail.com` | `12345678`              |
+| Driver        | `driver@gmail.com`    | `12345678`              |
+| Administrator | `admin@gmail.com`     | `DEMO_ACCOUNT_PASSWORD` |
 
 The seeded driver is enabled and has a vehicle. The seed also configures Central Station to Airport (45 minutes, NGN 18,000 solo, NGN 6,500 per pooled seat). Publish a future departure from the driver account before searching as the passenger.
 

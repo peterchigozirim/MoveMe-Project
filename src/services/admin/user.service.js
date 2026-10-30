@@ -8,7 +8,7 @@ class AdminUserService {
 			orderBy: { createdAt: "asc" },
 		});
 
-		if (!users || users.length === 0) throw httpError(404, "No users found");
+		if (!users || users.length === 0) throw httpError("No users found", 404);
 		return users;
 	};
 
@@ -17,7 +17,7 @@ class AdminUserService {
 			where: { id },
 		});
 
-		if (!user) throw httpError(404, "User not found");
+		if (!user) throw httpError("User not found", 404);
 		return user;
 	};
 
@@ -26,7 +26,7 @@ class AdminUserService {
 			where: { id },
 		});
 
-		if (!user) throw httpError(404, "User not found");
+		if (!user) throw httpError("User not found", 404);
 
 		await prisma.user.delete({
 			where: { id },
@@ -40,7 +40,7 @@ class AdminUserService {
 			where: { id },
 		});
 
-		if (!user) throw httpError(404, "User not found");
+		if (!user) throw httpError("User not found", 404);
 
 		const updatedUser = await prisma.user.update({
 			where: { id },
