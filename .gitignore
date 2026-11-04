@@ -11,6 +11,10 @@ prisma/generated/
 /generated/
 .prisma/
 
+# temporary files
+*.tmp
+docs/*
+
 # logs
 *.log
 npm-debug.log*

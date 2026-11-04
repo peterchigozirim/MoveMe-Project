@@ -90,8 +90,7 @@ class BookRideController {
 	}
 
 	async handleCancelReservation(req, res, next) {
-		console.log("hello", req.body);
-		const { reservationId } = req.body;
+		const { reservationId } = req.params;
 		if (!reservationId) {
 			return res.status(422).json({
 				message: "Reservation ID is required",

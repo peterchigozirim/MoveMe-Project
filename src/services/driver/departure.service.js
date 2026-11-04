@@ -16,33 +16,6 @@ async function audit(tx, actorId, entityType, entityId, action, details) {
 	});
 }
 
-async function activeReservations(tx, departureId, now) {
-	const rides = await tx.ride.findMany({
-		where: { departureId, status: { in: activeRideStatuses } },
-		include: { payment: true },
-	});
-	const active = rides.filter((ride) => reservationIsActive(ride, now));
-	const expired = rides.filter(
-		(ride) =>
-			ride.status === "PENDING_PAYMENT" &&
-			ride.payment?.status === "PENDING" &&
-			ride.payment.expiresAt <= now,
-	);
-	for (const ride of expired) {
-		await tx.ride.update({
-			where: { id: ride.id },
-			data: { status: "CANCELLED" },
-		});
-		await tx.payment.update({
-			where: { id: ride.payment.id },
-			data: { status: "EXPIRED" },
-		});
-		await audit(tx, null, "Ride", ride.id, "PAYMENT_HOLD_EXPIRED", {});
-		await audit(tx, null, "Payment", ride.payment.id, "EXPIRED", {});
-	}
-	return active;
-}
-
 export async function publishDeparture(driver, input) {
 	const departureTime = new Date(input.departureTime);
 	if (
@@ -50,6 +23,9 @@ export async function publishDeparture(driver, input) {
 		departureTime <= new Date()
 	) {
 		throw httpError("Departure time must be in the future");
+	}
+	if (driver.driverEnabled === false) {
+		throw httpError("Admin has not enabled your driver account", 403);
 	}
 	return prisma.$transaction(
 		async (tx) => {
@@ -103,7 +79,7 @@ export async function publishDeparture(driver, input) {
 					durationMinutes: route.durationMinutes,
 					mode: input.mode,
 					fare,
-					totalSeats: vehicle.seats,
+					totalSeats: 0,
 					trip: { create: {} },
 				},
 				include: { route: true, vehicle: true },
@@ -163,6 +139,7 @@ export async function getOneDeparture(driver, departureId) {
 export async function getAllRoutes() {
 	const routes = await prisma.route.findMany({
 		where: { isActive: true },
+		orderBy: { createdAt: "desc" },
 		select: {
 			id: true,
 			origin: true,
@@ -256,7 +233,7 @@ export async function cancelDeparture(driver, departureId) {
 				await tx.notification.create({
 					data: {
 						userId: ride.passengerId,
-						type: "DEPARTURE_CANCELLED",
+						type: "Departure Cancelled",
 						message: "Your departure was cancelled by the driver.",
 					},
 				});
@@ -336,7 +313,6 @@ export async function updateTrip(driver, departureId, nextStatus) {
 				where: { id: departure.trip.id },
 				data,
 			});
-			console.log(departure.rides);
 			if (nextStatus === "IN_PROGRESS") {
 				await tx.departure.update({
 					where: { id: departureId },
@@ -372,6 +348,10 @@ export async function updateTrip(driver, departureId, nextStatus) {
 						},
 					});
 					emitToUsers([ride.passengerId], "notification", {
+						type: nextStatus,
+						message: notificationMessage,
+					});
+					emitToUsers([ride.passengerId], "departure_updated", {
 						type: nextStatus,
 						message: notificationMessage,
 					});
