@@ -12,6 +12,7 @@ import paymentRoutes from "./payment/payment.routes.js";
 import driverRoutes from "./driver.routes.js";
 import notificationRoutes from "./notification.routes.js";
 import IssueRoutes from "./issue.routes.js";
+import adminTripRoutes from "./admin/admin.trip.routes.js";
 
 const router = Router();
 
@@ -34,6 +35,7 @@ router.use("/admin/routes", adminRouteRoutes);
 router.use("/admin/drivers", adminDriverRoutes);
 router.use("/admin/audits", adminAuditRoutes);
 router.use("/admin/issues", adminIssueRoutes);
+router.use("/admin/trips", adminTripRoutes);
 
 // driver routes
 router.use("/driver", driverRoutes);
