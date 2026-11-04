@@ -45,7 +45,7 @@ router.post(
 );
 
 router.post(
-	"/cancel-reservation",
+	"/cancel-reservation/:reservationId",
 	authenticate,
 	checkPassenger,
 	bookRideController.handleCancelReservation,

@@ -5,6 +5,7 @@ import {
 	intervalsOverlap,
 	reservationIsActive,
 } from "../../utils/availability.js";
+import { emitToUser } from "../../websocket/realtime.js";
 
 const activeRideStatuses = ["PENDING_PAYMENT", "CONFIRMED"];
 
@@ -91,6 +92,7 @@ export async function getRoute() {
 		include: {
 			departures: {
 				where: { status: { not: "CANCELLED" } },
+				orderBy: { createdAt: "desc" },
 				select: {
 					id: true,
 					departureTime: true,
@@ -298,6 +300,19 @@ export async function cancelReservation(passenger, rideId) {
 			}
 			await audit(tx, passenger.id, "Ride", ride.id, "CANCELLED_BY_PASSENGER", {
 				refundIssued: ride.payment?.status === "SUCCESS",
+			});
+			const driverId = ride.departure?.driverId;
+
+			emitToUser(driverId, "departure_updated", {
+				rideId: ride.id,
+				message: "Your reservation has been cancelled.",
+			});
+			await tx.notification.create({
+				data: {
+					userId: driverId,
+					type: "Departure Cancelled",
+					message: "Your departure was cancelled by the passenger.",
+				},
 			});
 			return {
 				cancelled: true,

@@ -15,7 +15,7 @@ class AdminDriversService {
 				_count: { select: { vehicles: true } },
 				vehicles: true,
 			},
-			orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+			orderBy: { createdAt: "desc" },
 		});
 		if (!drivers) {
 			throw httpError("No drivers found", 404);
@@ -51,6 +51,12 @@ class AdminDriversService {
 		}
 		if (checkDriver.driverEnabled) {
 			throw httpError("Driver is already enabled", 400);
+		}
+		const checkVehicle = await prisma.vehicle.findFirst({
+			where: { driverId: id, isActive: true },
+		});
+		if (!checkVehicle) {
+			throw httpError("Active vehicle not found for this driver", 404);
 		}
 		try {
 			return prisma.user.update({

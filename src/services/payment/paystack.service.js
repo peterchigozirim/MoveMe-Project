@@ -173,6 +173,10 @@ async function settle(paymentId, transaction) {
 				where: { id: current.rideId },
 				data: { status: "CONFIRMED" },
 			});
+			// await tx.departure.update({
+			// 	where: { id: payment.ride.departureId },
+			// 	data: { totalSeats: { increment: 1 } },
+			// });
 			await audit(tx, current.passengerId, "Payment", paymentId, "SUCCEEDED", {
 				reference: transaction.reference,
 				gateway: "paystack",
