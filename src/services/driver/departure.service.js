@@ -79,7 +79,7 @@ export async function publishDeparture(driver, input) {
 					durationMinutes: route.durationMinutes,
 					mode: input.mode,
 					fare,
-					totalSeats: 0,
+					totalSeats: vehicle.seats,
 					trip: { create: {} },
 				},
 				include: { route: true, vehicle: true },
